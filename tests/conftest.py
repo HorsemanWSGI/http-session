@@ -1,6 +1,6 @@
 import pytest
 from copy import deepcopy
-from roughrider.session.prototypes import Store
+from http_session.meta import Store
 from unittest.mock import Mock
 
 

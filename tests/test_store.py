@@ -5,7 +5,7 @@ on the backend.
 """
 
 import pytest
-from roughrider.session.prototypes import Store
+from http_session.meta import Store
 
 
 def test_store_instance():

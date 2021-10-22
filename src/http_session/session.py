@@ -1,59 +1,16 @@
 import typing as t
-from abc import ABC, abstractmethod
-
-
-class Store(ABC):
-    """Session store abstraction.
-    """
-    def new(self):
-        return {}
-
-    def touch(self, sid: str):
-        """This method is similar to the `touch` unix command.
-        It will update the timestamps, if that makes sense in the
-        context of the session. Example of uses : file, cookie, jwt...
-        """
-        pass
-
-    def flush_expired_sessions(self):
-        """This method removes all the expired sessions.
-        Implement if that makes sense in your store context.
-        This method should be called as part of a scheduling,
-        since it can be very costy.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def __iter__(self):
-        """Iterates the session ids if that makes sense in the context
-        of the session management.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get(self, sid: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def set(self, sid: str, session: t.Mapping):
-        raise NotImplementedError
-
-    @abstractmethod
-    def clear(self, sid: str):
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete(self, sid: str):
-        raise NotImplementedError
+from .meta import Store, SessionData
 
 
 class Session(t.Mapping[str, t.Any]):
-    """ HTTP session dict prototype.
+    """ HTTP session implementation.
     This is an abstraction on top of a simple dict.
     It has flags to track modifications and access.
     Persistence should be handled and called exclusively
     in and through this abstraction.
     """
+    _data: t.Optional[SessionData]
+
     def __init__(self, sid: str, store: Store, new: bool = False):
         self.sid = sid
         self.store = store
@@ -91,7 +48,7 @@ class Session(t.Mapping[str, t.Any]):
         return self.data.get(key, default)
 
     @property
-    def data(self) -> t.Mapping[str, t.Any]:
+    def data(self) -> SessionData:
         if self._data is None:
             if self.new:
                 self._data = self.store.new()

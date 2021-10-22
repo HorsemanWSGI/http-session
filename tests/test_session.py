@@ -5,7 +5,7 @@ HTTP Session based  Mapping type.
 The session object assumes that the data is presented as a mapping
 and handles it accordingly.
 """
-from roughrider.session.prototypes import Session
+from http_session.session import Session
 
 
 def test_session_creation(store):
