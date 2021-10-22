@@ -8,7 +8,7 @@ class Store(ABC):
     def new(self):
         return {}
 
-    def touch(self, sid):
+    def touch(self, sid: str):
         """This method is similar to the `touch` unix command.
         It will update the timestamps, if that makes sense in the
         context of the session. Example of uses : file, cookie, jwt...
@@ -31,19 +31,19 @@ class Store(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, sid):
+    def get(self, sid: str):
         raise NotImplementedError
 
     @abstractmethod
-    def set(self, sid, session):
+    def set(self, sid: str, session: t.Mapping):
         raise NotImplementedError
 
     @abstractmethod
-    def clear(self, sid):
+    def clear(self, sid: str):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, sid):
+    def delete(self, sid: str):
         raise NotImplementedError
 
 
@@ -54,21 +54,21 @@ class Session(t.Mapping[str, t.Any]):
     Persistence should be handled and called exclusively
     in and through this abstraction.
     """
-    def __init__(self, sid, store, new=False):
+    def __init__(self, sid: str, store: Store, new: bool = False):
         self.sid = sid
         self.store = store
         self.new = new  # boolean : this is a new session.
         self._modified = new or False
         self._data = None  # Lazy loading
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
         return self.data[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: t.Any):
         self.data[key] = value
         self._modified = True
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str):
         self.data.__delitem__(key)
         self._modified = True
 
@@ -81,17 +81,17 @@ class Session(t.Mapping[str, t.Any]):
     def __iter__(self):
         return iter(self.data)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str):
         return key in self.data
 
-    def has_key(self, key):
+    def has_key(self, key: str):
         return key in self.data
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: t.Any = None):
         return self.data.get(key, default)
 
     @property
-    def data(self):
+    def data(self) -> t.Mapping[str, t.Any]:
         if self._data is None:
             if self.new:
                 self._data = self.store.new()
@@ -100,14 +100,14 @@ class Session(t.Mapping[str, t.Any]):
         return self._data
 
     @property
-    def accessed(self):
+    def accessed(self) -> bool:
         return self._data is not None
 
     @property
-    def modified(self):
+    def modified(self) -> bool:
         return self._modified
 
-    def save(self):
+    def save(self) -> t.NoReturn:
         """Mark as dirty to allow persistence.
         This is dramatically important to use that method to mark
         the session to be written. If this method is not called,
@@ -116,7 +116,7 @@ class Session(t.Mapping[str, t.Any]):
         """
         self._modified = True
 
-    def persist(self, force=False):
+    def persist(self, force: bool = False) -> t.NoReturn:
         if force or (not force and self._modified):
             self.store.set(self.sid, self.data)
             self._modified = False
@@ -124,6 +124,6 @@ class Session(t.Mapping[str, t.Any]):
             # We are alive, please keep us that way.
             self.store.touch(self.sid)
 
-    def clear(self):
+    def clear(self) -> t.NoReturn:
         self.data.clear()
         self._modified = True
