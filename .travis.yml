@@ -1,0 +1,15 @@
+dist: trusty
+language: python
+sudo: false
+cache: pip
+python:
+  - 3.4
+  - 3.5
+  - 3.6
+
+install:
+  - pip install -U pip setuptools
+  - pip install -U -e ".[test]"
+
+script:
+  - pytest src --doctest-modules

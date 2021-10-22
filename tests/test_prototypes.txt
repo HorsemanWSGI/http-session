@@ -1,0 +1,225 @@
+Session components prototypes
+=============================
+
+`roughrider.session` provides three prototypes that are interconnected.
+
+The "store" prototyped in `roughrider.session.prototypes.Store`
+represents a store handling sessions. This store knows how to
+retrieve, persist, clear or create sessions, using their SID.
+
+The "session" prototyped in
+`roughrider.session.prototypes.Session` represents the session iself.
+It is discriminated by its sid and is able to set and get key/value
+pairs and track the modifications and accesses.
+
+The "manager" prototyped in
+`roughrider.session.prototypes.Manager` oversees the store and session,
+in order to interface them with the browser. It is mainly used as a
+SID policy.
+
+A functional implementation is
+provided in `roughrider.session.prototypes.components.SignedCookieManager`
+using cookies to keep track of the sid and expiration.
+
+
+The Store
+---------
+
+    >>> from roughrider.session import Store
+
+The store prototype is a metaclass abstraction. It is meant to be
+subclassed as the inner workings can't be generic. They heavily depend
+on the backend:
+
+    >>> Store()  # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
+    Traceback (most recent call last):
+    ...
+    TypeError: Can't instantiate abstract class Store with abstract
+    methods __iter__, clear, delete, get, set
+
+
+Each of these abstract method provides a comprehensive documentation
+as a docstring. Read the code for more insights.
+
+As the other prototypes will need an implementation to be tested,
+let's create a basic store, using a dict as a backend:
+
+    >>> from copy import deepcopy
+
+    >>> class MemoryStore(Store):
+    ...
+    ...     def __init__(self):
+    ...         self._store = {}
+    ...
+    ...     def __iter__(self):
+    ...         return iter(self._store.keys())
+    ...
+    ...     def touch(self, sid):
+    ...         print('Session "%s" was accessed' % sid)
+    ...
+    ...     def get(self, sid):
+    ...         """We return a copy, to avoid mutability by reference.
+    ...         """
+    ...         data = self._store.get(sid)
+    ...         if data is not None:
+    ...             return deepcopy(data)
+    ...         return data
+    ...
+    ...     def set(self, sid, session):
+    ...         self._store[sid] = session
+    ...
+    ...     def clear(self, sid):
+    ...         if sid in self._store:
+    ...             self._store[sid].clear()
+    ...
+    ...     def delete(self, sid):
+    ...         del self._store[sid]
+
+    >>> store = MemoryStore()
+
+
+The Session
+-----------
+
+    >>> from roughrider.session import Session
+
+The session prototype, despite being a metaclass abstraction, provides
+a base implementation of all its methods. The session object assumes
+that the data is presented as a mapping and handles it accordingly.
+
+The "new" flag is set to mark the session has a brand new : it does
+not exist in store. Since it's a new session, it's marked as dirty to
+be persisted through the 'modified' attribute:
+
+    >>> session = Session('a sid', store, new=True)
+    >>> session.accessed
+    False
+    >>> session.modified
+    True
+
+The session object gets a reference to the store, to allow the session
+to be awaken only if it's accessed.
+
+    >>> print(session._data)
+    None
+
+The "_data" attribute is the session data. As long as we have not
+accessed "session.data", it will not be awaken (fetch from the store).
+
+    >>> session.data
+    {}
+    >>> session._data
+    {}
+    >>> session.accessed
+    True
+
+The store still has no trace of our session:
+
+    >>> print(list(store))
+    []
+
+Our session is created, it's direcy, it's ready to be persisted:
+
+    >>> session.persist()
+    >>> print(list(store))
+    ['a sid']
+
+We can now retrieve it:
+
+    >>> store.get('a sid')
+    {}
+
+The store retrieves the raw data, not a Session object. For that, we
+need to go through the Session object itself:
+
+    >>> session = Session('a sid', store)
+    >>> print(session._data)
+    None
+
+It's still sleeping. Let's wake it and modify it:
+
+    >>> session.data
+    {}
+    >>> session.modified
+    False
+
+    >>> session['my var'] = 12
+    >>> session.data
+    {'my var': 12}
+
+    >>> print(list(session))
+    ['my var']
+
+    >>> 'my var' in session
+    True
+
+    >>> session.get('my var')
+    12
+
+Since we modified it using `set`, the "modified" attribute is
+correctly set:
+
+    >>> session.modified
+    True
+
+Warning: if you manipulate the data dict directly, the session WILL
+NOT be marked modified and WON'T be persisted. The persistency is
+heavily reliant on this flag.
+
+    >>> session = Session('a sid', store)
+    >>> session.data
+    {}
+    >>> session.data['my var'] = 12
+    >>> session.modified
+    False
+
+Persistence will not happen, but the data was accessed, triggering a
+`touch` from the store:
+
+    >>> session.persist()
+    Session "a sid" was accessed
+    >>> store.get('a sid')
+    {}
+
+Persistence can be forced to happen, despite the flag:
+
+    >>> session.persist(force=True)
+    >>> store.get('a sid')
+    {'my var': 12}
+
+Or we can manually tell the session to be persisted whenn the time
+comes:
+
+    >>> session = Session('a sid', store)
+    >>> session.data['other var'] = 42
+    >>> session.modified
+    False
+    >>> session.save()
+    >>> session.modified
+    True
+
+    >>> session.persist()
+    >>> assert store.get('a sid') == {'other var': 42, 'my var': 12}
+
+A session can clear itself, but not destroy itself.
+
+    >>> session = Session('a sid', store)
+    >>> session.data['other var'] = 42
+    >>> session.save()
+    >>> session.persist()
+    >>> assert store.get('a sid') == {'other var': 42, 'my var': 12}
+    >>> session.clear()
+    >>> session.modified
+    True
+    >>> session.persist()
+    >>> assert store.get('a sid') == {}
+
+While a session cannot destroy itself, the store will gladly do it:
+
+    >>> store.clear('a sid')
+    >>> store.get('a sid')
+    {}
+
+    >>> store.delete('a sid')
+    >>> print(store.get('a sid'))
+    None
