@@ -4,7 +4,7 @@ from biscuits import parse, Cookie
 from datetime import datetime, timedelta
 from functools import wraps
 from uuid import uuid4
-from roughrider.session.prototypes import Session, Store
+from .components import Session, Store
 
 
 class SignedCookieManager:
