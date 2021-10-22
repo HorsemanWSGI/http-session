@@ -84,3 +84,6 @@ class Session(t.Mapping[str, t.Any]):
     def clear(self) -> t.NoReturn:
         self.data.clear()
         self._modified = True
+
+
+SessionFactory = t.Callable[[str, Store, bool], Session]

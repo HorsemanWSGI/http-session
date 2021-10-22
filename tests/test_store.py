@@ -15,5 +15,5 @@ def test_store_instance():
 
     assert str(exc.value) == (
         "Can't instantiate abstract class Store with abstract "
-        "methods __iter__, clear, delete, get, set"
+        "methods clear, delete, get, set"
     )

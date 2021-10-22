@@ -4,15 +4,21 @@ from biscuits import parse, Cookie
 from datetime import datetime, timedelta
 from functools import wraps
 from uuid import uuid4
-from .components import Session, Store
+from .meta import Store
+from .session import Session, SessionFactory
 
 
 class SignedCookieManager:
 
-    def __init__(self, store: Store, secret: str, cookie_name: str = 'sid'):
+    def __init__(self,
+                 store: Store,
+                 secret: str,
+                 cookie_name: str = 'sid',
+                 session_factory: SessionFactory = Session):
         self.store = store
         self.delta: int = store.delta  # lifespan delta in seconds.
         self.cookie_name = cookie_name
+        self.session_factory = session_factory
         self._signer = itsdangerous.TimestampSigner(secret)
 
     def generate_id(self):
@@ -28,7 +34,7 @@ class SignedCookieManager:
         """Override to change the session baseclass, if needed.
         """
         new, sid = self.get_id(cookie)
-        return Session(sid, self.store, new=new)
+        return self.session_factory(sid, self.store, new=new)
 
     def get_id(self, cookie):
         if cookie is not None:
