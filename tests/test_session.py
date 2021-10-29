@@ -18,7 +18,7 @@ def test_session_creation(store):
     """
     session = Session('a sid', store, new=True)
     assert session.accessed is False
-    assert session.modified is True
+    assert session.modified is False
     assert session._data is None
 
     assert session.data == {}
@@ -29,6 +29,7 @@ def test_session_creation(store):
     assert list(store) == []
 
     # Persisting and checks
+    session.save()
     session.persist()
     assert list(store) == ['a sid']
 
@@ -54,7 +55,7 @@ def test_session_attribution(store):
 def test_session_persistence(store):
     # we created a new session
     session = Session('a sid', store, new=True)
-    session.persist()
+    session.persist(force=True)
 
     # we continue an existing session
     # Accessing directly the data doesn't trigger the flag value setting

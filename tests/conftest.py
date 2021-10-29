@@ -6,9 +6,10 @@ from unittest.mock import Mock
 
 class MemoryStore(Store):
 
-    def __init__(self):
+    def __init__(self, TTL=None):
         self._store = {}
         self.touch = Mock()
+        self.TTL = TTL
 
     def __iter__(self):
         return iter(self._store.keys())

@@ -12,6 +12,8 @@ install_requires = [
 
 tests_require = [
     'pytest',
+    'freezegun',
+    'webtest',
 ]
 
 

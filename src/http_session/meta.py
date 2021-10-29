@@ -8,8 +8,7 @@ SessionData = t.Mapping[str, t.Any]
 class Store(ABC):
     """Session store abstraction.
     """
-    def new(self) -> SessionData:
-        return {}
+    TTL: t.Optional[int] = None
 
     def touch(self, sid: str) -> t.NoReturn:
         """This method is similar to the `touch` unix command.

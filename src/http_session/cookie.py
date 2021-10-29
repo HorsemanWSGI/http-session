@@ -1,11 +1,18 @@
+import uuid
+from enum import Enum
 import typing as t
 import itsdangerous
 from biscuits import parse, Cookie
 from datetime import datetime, timedelta
 from functools import wraps
-from uuid import uuid4
 from .meta import Store
 from .session import Session, SessionFactory
+
+
+class SameSite(Enum):
+    lax = 'Lax'
+    strict = 'Strict'
+    none = 'None'
 
 
 class SignedCookieManager:
@@ -13,55 +20,75 @@ class SignedCookieManager:
     def __init__(self,
                  store: Store,
                  secret: str,
+                 TTL: t.Optional[int] = 300,  # lifespan in seconds.
                  cookie_name: str = 'sid',
                  session_factory: SessionFactory = Session):
         self.store = store
-        self.delta: int = store.delta  # lifespan delta in seconds.
+        self.TTL = TTL
         self.cookie_name = cookie_name
         self.session_factory = session_factory
         self._signer = itsdangerous.TimestampSigner(secret)
 
     def generate_id(self):
-        return str(uuid4())
+        return str(uuid.uuid4())
 
-    def refresh_id(self, sid: str):
+    def sign_id(self, sid: str) -> str:
         return str(self._signer.sign(sid), 'utf-8')
 
     def verify_id(self, sid: str) -> bool:
-        return self._signer.unsign(sid, max_age=self.delta)
+        if self.TTL:
+            return self._signer.unsign(sid, max_age=self.TTL)
+        return self._signer.unsign(sid)
 
-    def get_session(self, cookie) -> Session:
-        """Override to change the session baseclass, if needed.
-        """
-        new, sid = self.get_id(cookie)
-        return self.session_factory(sid, self.store, new=new)
-
-    def get_id(self, cookie):
+    def get_session(self, cookie: t.Optional[str] = None) -> Session:
         if cookie is not None:
-            morsels = parse(cookie)
-            signed_sid = morsels.get(self.cookie_name)
-            if signed_sid is not None:
-                try:
-                    sid = self.verify_id(signed_sid)
-                    return False, str(sid, 'utf-8')
-                except itsdangerous.exc.SignatureExpired:
-                    # Session expired. We generate a new one.
-                    pass
-        return True, self.generate_id()
+            sid = self.get_id(cookie)
+            if sid is not None:
+                return self.session_factory(sid, self.store, new=False)
+        sid = self.generate_id()
+        return self.session_factory(sid, self.store, new=True)
 
-    def cookie(self, sid: str, path: str = "/", domain: str = "localhost"):
+    def get_id(self, cookie: str):
+        morsels = parse(cookie)
+        signed_sid = morsels.get(self.cookie_name)
+        if signed_sid is not None:
+            try:
+                sid = self.verify_id(signed_sid)
+                return str(sid, 'utf-8')
+            except itsdangerous.exc.SignatureExpired:
+                # Session expired. We generate a new one.
+                pass
+
+    def cookie(self,
+               sid: str,
+               path: str = "/",
+               domain: str = "localhost",
+               secure: bool = True,
+               samesite: SameSite = SameSite.lax,
+               httponly: bool = False):
         """We enforce the expiration.
         """
-        # Refresh the signature on the sid.
-        ssid = self.refresh_id(sid)
+        samesite = SameSite(samesite)
+        if samesite is SameSite.none and not secure:
+            raise ValueError('SameSite `None` requires a secure context.')
 
-        # Generate the expiration date using the delta
-        expires = datetime.now() + timedelta(seconds=self.delta)
+        if self.TTL:
+            # Generate the expiration date using the TTL
+            expires = datetime.now() + timedelta(seconds=self.TTL)
+        else:
+            expires = None
 
         # Create the cookie containing the ssid.
         cookie = Cookie(
-            name=self.cookie_name, value=ssid, path=path,
-            domain=domain, expires=expires)
+            name=self.cookie_name,
+            value=self.sign_id(sid),
+            path=path,
+            domain=domain,
+            secure=secure,
+            expires=expires,
+            samesite=samesite.value,
+            httponly=httponly,
+        )
 
         value = str(cookie)
 
@@ -71,7 +98,11 @@ class SignedCookieManager:
 
         return value
 
-    def middleware(self, app, environ_key: str = 'httpsession'):
+    def middleware(self, app,
+                   environ_key: str = 'httpsession',
+                   secure: bool = True,
+                   samesite: SameSite = SameSite.lax,
+                   httponly: bool = False):
 
         @wraps(app)
         def session_wrapper(environ, start_response):
@@ -80,21 +111,28 @@ class SignedCookieManager:
                 # Write down the session
                 # This relies on the good use of the `save` method.
                 session = environ[environ_key]
-                session.persist()
+                if session.modified or not session.new:
+                    session.persist()
+                    # Prepare the cookie
+                    path = environ['SCRIPT_NAME'] or '/'
+                    domain = environ['HTTP_HOST'].split(':', 1)[0]
+                    cookie = self.cookie(
+                        session.sid,
+                        path,
+                        domain,
+                        secure=secure,
+                        samesite=samesite,
+                        httponly=httponly
+                    )
 
-                # Prepare the cookie
-                path = environ['SCRIPT_NAME'] or '/'
-                domain = environ['HTTP_HOST'].split(':', 1)[0]
-                cookie = self.cookie(session.sid, path, domain)
-
-                # Write the cookie header
-                headers.append(('Set-Cookie', cookie))
+                    # Write the cookie header
+                    headers.append(('Set-Cookie', cookie))
 
                 # Return normally
                 return start_response(status, headers, exc_info)
 
             session = self.get_session(environ.get('HTTP_COOKIE'))
-            environ[self.environ_key] = session
+            environ[environ_key] = session
             return app(environ, session_start_response)
 
         return session_wrapper

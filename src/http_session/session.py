@@ -9,14 +9,13 @@ class Session(t.Mapping[str, t.Any]):
     Persistence should be handled and called exclusively
     in and through this abstraction.
     """
-    _data: t.Optional[SessionData]
+    _data: t.Optional[SessionData] = None  # Lazy loading
 
     def __init__(self, sid: str, store: Store, new: bool = False):
         self.sid = sid
         self.store = store
         self.new = new  # boolean : this is a new session.
-        self._modified = new or False
-        self._data = None  # Lazy loading
+        self._modified = False
 
     def __getitem__(self, key: str):
         return self.data[key]
@@ -51,9 +50,10 @@ class Session(t.Mapping[str, t.Any]):
     def data(self) -> SessionData:
         if self._data is None:
             if self.new:
-                self._data = self.store.new()
+                self._data = {}
             else:
-                self._data = self.store.get(self.sid)
+                # an empty data is returned if it's expired.
+                self._data = self.store.get(self.sid) or {}
         return self._data
 
     @property
@@ -77,7 +77,7 @@ class Session(t.Mapping[str, t.Any]):
         if force or (not force and self._modified):
             self.store.set(self.sid, self.data)
             self._modified = False
-        elif self.accessed:
+        elif self.accessed and not self.new:
             # We are alive, please keep us that way.
             self.store.touch(self.sid)
 
