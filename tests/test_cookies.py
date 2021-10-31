@@ -1,5 +1,6 @@
 import uuid
 import pytest
+import hashlib
 from http_session.cookie import SignedCookieManager
 from http_session.session import Session
 from unittest.mock import patch
@@ -31,6 +32,21 @@ def test_manager_basics(store):
     manager = SignedCookieManager(store, secret='mysecret', TTL=None)
     SignedCookieManager(store, secret='mysecret', TTL=None)
     assert manager.TTL is None
+
+
+def test_manager_digest(store):
+    manager = SignedCookieManager(store, secret='mysecret', digest='sha256')
+    assert manager._signer.digest_method is hashlib.sha256
+
+    with pytest.raises(KeyError):
+        SignedCookieManager(
+            store, secret='mysecret', digest='john')
+
+
+def test_manager_salt(store):
+    manager = SignedCookieManager(store, secret='mysecret')
+    assert manager._signer.salt is not None
+    assert len(manager._signer.salt) == 16
 
 
 @patch('uuid.uuid4', mock_uuid(uuid_generator()))
