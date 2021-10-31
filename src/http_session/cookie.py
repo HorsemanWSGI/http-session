@@ -1,6 +1,7 @@
 import uuid
 import secrets
 import typing as t
+import hashlib
 import itsdangerous
 from enum import Enum
 from biscuits import parse, Cookie
@@ -8,6 +9,14 @@ from datetime import datetime, timedelta
 from functools import wraps
 from .meta import Store
 from .session import Session, SessionFactory
+
+
+HashAlgorithm = Enum(
+    'Algorithm', {
+        name: getattr(hashlib, name)
+        for name in hashlib.algorithms_guaranteed
+    }
+)
 
 
 class SameSite(Enum):
@@ -22,6 +31,7 @@ class SignedCookieManager:
                  store: Store,
                  secret: str,
                  salt: t.Optional[str] = None,
+                 digest: str = HashAlgorithm.sha1.name,
                  TTL: t.Optional[int] = 300,  # lifespan in seconds.
                  cookie_name: str = 'sid',
                  session_factory: SessionFactory = Session):
@@ -31,7 +41,10 @@ class SignedCookieManager:
         self.session_factory = session_factory
         if salt is None:
             salt = secrets.token_hex(8)
-        self._signer = itsdangerous.TimestampSigner(secret, salt=salt)
+        self._signer = itsdangerous.TimestampSigner(
+            secret, salt=salt,
+            digest_method=HashAlgorithm[digest].value
+        )
 
     def generate_id(self):
         return str(uuid.uuid4())
