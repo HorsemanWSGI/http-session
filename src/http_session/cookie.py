@@ -1,7 +1,8 @@
 import uuid
-from enum import Enum
+import secrets
 import typing as t
 import itsdangerous
+from enum import Enum
 from biscuits import parse, Cookie
 from datetime import datetime, timedelta
 from functools import wraps
@@ -20,6 +21,7 @@ class SignedCookieManager:
     def __init__(self,
                  store: Store,
                  secret: str,
+                 salt: t.Optional[str] = None,
                  TTL: t.Optional[int] = 300,  # lifespan in seconds.
                  cookie_name: str = 'sid',
                  session_factory: SessionFactory = Session):
@@ -27,7 +29,9 @@ class SignedCookieManager:
         self.TTL = TTL
         self.cookie_name = cookie_name
         self.session_factory = session_factory
-        self._signer = itsdangerous.TimestampSigner(secret)
+        if salt is None:
+            salt = secrets.token_hex(8)
+        self._signer = itsdangerous.TimestampSigner(secret, salt=salt)
 
     def generate_id(self):
         return str(uuid.uuid4())

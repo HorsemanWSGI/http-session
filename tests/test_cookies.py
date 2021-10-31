@@ -77,11 +77,11 @@ def test_id_signature(store):
 
 
 def test_create_cookie_with_expiration(store):
-    manager = SignedCookieManager(store, secret='mysecret')
+    manager = SignedCookieManager(store, secret='mysecret', salt="pepper")
     with freeze_time('2021-10-29 19:00:00'):
         cookie = manager.cookie('test')
     assert cookie == (
-        'sid=test.YXxEsA.SyxnoFVAMOCvUbO56fb2m78S01M; '
+        'sid=test.YXxEsA.O7ZKiljgyFx7xSSUgR69oZCbcf8; '
         'Expires=Fri, 29 Oct 2021 19:05:00 GMT; '
         'Domain=localhost; Path=/; '
         'Secure; SameSite=Lax'
@@ -97,11 +97,12 @@ def test_create_cookie_with_expiration(store):
         cookie = manager.cookie('test', secure=False, samesite='None')
     assert str(exc.value) == "SameSite `None` requires a secure context."
 
-    manager = SignedCookieManager(store, secret='mysecret', TTL=600)
+    manager = SignedCookieManager(
+        store, secret='mysecret', salt="pepper", TTL=600)
     with freeze_time('2021-10-29 23:59:00'):
         cookie = manager.cookie('test', samesite='None')
     assert cookie == (
-        'sid=test.YXyKxA.0tTfq7F5OxLN1erdD7tU8M7_Wz0; '
+        'sid=test.YXyKxA.DEUCVRD9agn_9TlJKYvr4twBl1s; '
         'Expires=Sat, 30 Oct 2021 00:09:00 GMT; '
         'Domain=localhost; Path=/; '
         'Secure; SameSite=None'
@@ -119,11 +120,12 @@ def test_create_cookie_with_expiration(store):
 
 
 def test_create_session_cookie(store):
-    manager = SignedCookieManager(store, secret='mysecret', TTL=None)
+    manager = SignedCookieManager(
+        store, secret='mysecret', salt="pepper", TTL=None)
     with freeze_time('2021-10-29 19:00:00'):
         cookie = manager.cookie('test')
     assert cookie == (
-        'sid=test.YXxEsA.SyxnoFVAMOCvUbO56fb2m78S01M; '
+        'sid=test.YXxEsA.O7ZKiljgyFx7xSSUgR69oZCbcf8; '
         'Domain=localhost; Path=/; Secure; SameSite=Lax'
     )
     assert manager.get_id(cookie) == 'test'
@@ -132,11 +134,12 @@ def test_create_session_cookie(store):
         cookie = manager.cookie('test', secure=False, samesite='None')
     assert str(exc.value) == "SameSite `None` requires a secure context."
 
-    manager = SignedCookieManager(store, secret='mysecret', TTL=None)
+    manager = SignedCookieManager(
+        store, secret='mysecret', salt="pepper", TTL=None)
     with freeze_time('2021-10-29 23:59:00'):
         cookie = manager.cookie('test', samesite='None')
     assert cookie == (
-        'sid=test.YXyKxA.0tTfq7F5OxLN1erdD7tU8M7_Wz0; '
+        'sid=test.YXyKxA.DEUCVRD9agn_9TlJKYvr4twBl1s; '
         'Domain=localhost; Path=/; Secure; SameSite=None'
     )
 

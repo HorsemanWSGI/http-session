@@ -35,14 +35,14 @@ def app(environ, start_response):
 
 
 def test_wsgi_middleware_nothing_happens(store):
-    manager = SignedCookieManager(store, secret='mysecret')
+    manager = SignedCookieManager(store, secret='mysecret', salt="pepper")
     wsgiapp = WebApp(manager.middleware(noop))
     response = wsgiapp.get('/')
     assert response.headers.get('Set-Cookie') is None
 
     cookie = (
         "sid=00000000-0000-0000-0000-000000000000"
-        ".YXxEsA.zADP16c9Nld1a7gz2wCIH6iYdZM; "
+        ".YXxEsA.X2CUHMwIkHhoI3mJG7DOyWaDAjs; "
         "Expires=Fri, 29 Oct 2021 19:05:00 GMT; "
         "Domain=localhost; Path=/; Secure; SameSite=Lax"
     )
@@ -50,7 +50,7 @@ def test_wsgi_middleware_nothing_happens(store):
         response = wsgiapp.get('/', headers={'Cookie': cookie})
     assert response.headers.get('Set-Cookie') == (
         "sid=00000000-0000-0000-0000-000000000000"
-        ".YXxFKA.kFPLnaCZYNyMzTjRX6Zc03HlMzY; "
+        ".YXxFKA.F1O1sUOTE3sHHrjv3tcmrO6CZ9Y; "
         "Expires=Fri, 29 Oct 2021 19:07:00 GMT; "
         "Domain=localhost; Path=/; Secure; SameSite=Lax"
     )
@@ -58,7 +58,7 @@ def test_wsgi_middleware_nothing_happens(store):
 
 @patch('uuid.uuid4', mock_uuid(uuid_generator()))
 def test_wsgi_middleware_save(store):
-    manager = SignedCookieManager(store, secret='mysecret')
+    manager = SignedCookieManager(store, secret='mysecret', salt="pepper")
     wsgiapp = WebApp(manager.middleware(app))
 
     with freeze_time('2021-10-29 19:00:00'):
@@ -68,7 +68,7 @@ def test_wsgi_middleware_save(store):
     cookie = response.headers.get('Set-Cookie')
     assert cookie == (
         "sid=00000000-0000-0000-0000-000000000000"
-        ".YXxEsA.zADP16c9Nld1a7gz2wCIH6iYdZM; "
+        ".YXxEsA.X2CUHMwIkHhoI3mJG7DOyWaDAjs; "
         "Expires=Fri, 29 Oct 2021 19:05:00 GMT; "
         "Domain=localhost; Path=/; Secure; SameSite=Lax"
     )
@@ -79,7 +79,7 @@ def test_wsgi_middleware_save(store):
     assert response.body == b'I did nothing!\n'
     assert response.headers.get('Set-Cookie') == (
         "sid=00000000-0000-0000-0000-000000000000"
-        ".YXxFKA.kFPLnaCZYNyMzTjRX6Zc03HlMzY; "
+        ".YXxFKA.F1O1sUOTE3sHHrjv3tcmrO6CZ9Y; "
         "Expires=Fri, 29 Oct 2021 19:07:00 GMT; "
         "Domain=localhost; Path=/; Secure; SameSite=Lax"
     )
@@ -88,16 +88,15 @@ def test_wsgi_middleware_save(store):
         response = wsgiapp.get('/', headers={'Cookie': cookie})
     assert response.headers.get('Set-Cookie') == (
         "sid=00000000-0000-0000-0000-000000000001"
-        ".YXxHCA.4NikiSMM4nvu9jP0OrfET4s3I9A; "
+        ".YXxHCA.NXZRXgDkqBo3Tny1HyliOiQ53kM; "
         "Expires=Fri, 29 Oct 2021 19:15:00 GMT; "
         "Domain=localhost; Path=/; Secure; SameSite=Lax"
     )
 
 
-
 @patch('uuid.uuid4', mock_uuid(uuid_generator()))
 def test_wsgi_middleware_parameters(store):
-    manager = SignedCookieManager(store, secret='mysecret')
+    manager = SignedCookieManager(store, secret='mysecret', salt="pepper")
     wsgiapp = WebApp(manager.middleware(
         app, samesite='None', httponly=True))
 
@@ -108,7 +107,7 @@ def test_wsgi_middleware_parameters(store):
     cookie = response.headers.get('Set-Cookie')
     assert cookie == (
         "sid=00000000-0000-0000-0000-000000000000"
-        ".YXxEsA.zADP16c9Nld1a7gz2wCIH6iYdZM; "
+        ".YXxEsA.X2CUHMwIkHhoI3mJG7DOyWaDAjs; "
         "Expires=Fri, 29 Oct 2021 19:05:00 GMT; "
         "Domain=localhost; Path=/; Secure; HttpOnly; SameSite=None"
     )
