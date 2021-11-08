@@ -75,6 +75,10 @@ class SignedCookieManager:
             except itsdangerous.exc.SignatureExpired:
                 # Session expired. We generate a new one.
                 pass
+            except itsdangerous.exc.BadTimeSignature:
+                # Discrepancy in time signature.
+                # Invalid, generate a new one
+                pass
 
     def cookie(self,
                sid: str,
